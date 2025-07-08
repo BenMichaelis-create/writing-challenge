@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Timed Writing Challenge</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: start;
+      min-height: 100vh;
+    }
+    h1 {
+      margin-bottom: 1rem;
+    }
+    .controls {
+      margin-bottom: 1rem;
+    }
+    select, button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      margin-right: 0.5rem;
+    }
+    #timer {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    textarea {
+      width: 100%;
+      max-width: 700px;
+      height: 300px;
+      padding: 1rem;
+      font-size: 1rem;
+      resize: none;
+    }
+    .hidden {
+      display: none;
+    }
+    .result {
+      margin-top: 1rem;
+      font-weight: bold;
+      font-size: 1.2rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Timed Writing Challenge</h1>
+  <div class="controls">
+    <label for="duration">Choose Time:</label>
+    <select id="duration">
+      <option value="1">1 Minute</option>
+      <option value="2">2 Minutes</option>
+      <option value="3">3 Minutes</option>
+      <option value="5">5 Minutes</option>
+    </select>
+    <button id="startButton">Start Writing</button>
+  </div>
+
+  <div id="timer" class="hidden"></div>
+  <textarea id="writingArea" class="hidden" placeholder="Start writing here..."></textarea>
+  <div id="result" class="result hidden"></div>
+
+  <script>
+    const startButton = document.getElementById('startButton');
+    const durationSelect = document.getElementById('duration');
+    const writingArea = document.getElementById('writingArea');
+    const timerDisplay = document.getElementById('timer');
+    const resultDisplay = document.getElementById('result');
+
+    let countdownInterval;
+    let inactivityTimer;
+    let timeRemaining = 0;
+    let isFailed = false;
+
+    function startChallenge() {
+      const minutes = parseInt(durationSelect.value);
+      timeRemaining = minutes * 60;
+      isFailed = false;
+
+      writingArea.value = '';
+      writingArea.disabled = false;
+      writingArea.classList.remove('hidden');
+      resultDisplay.classList.add('hidden');
+      timerDisplay.classList.remove('hidden');
+      writingArea.focus();
+
+      updateTimerDisplay();
+
+      clearInterval(countdownInterval);
+      clearTimeout(inactivityTimer);
+
+      countdownInterval = setInterval(() => {
+        timeRemaining--;
+        updateTimerDisplay();
+        if (timeRemaining <= 0) {
+          clearInterval(countdownInterval);
+          clearTimeout(inactivityTimer);
+          endChallenge(true);
+        }
+      }, 1000);
+
+      resetInactivityTimer();
+
+      writingArea.addEventListener('keydown', resetInactivityTimer);
+    }
+
+    function updateTimerDisplay() {
+      const minutes = Math.floor(timeRemaining / 60);
+      const seconds = timeRemaining % 60;
+      timerDisplay.textContent = `Time Left: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function resetInactivityTimer() {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        if (timeRemaining > 0) {
+          failChallenge();
+        }
+      }, 10000); // 10 seconds
+    }
+
+    function failChallenge() {
+      clearInterval(countdownInterval);
+      isFailed = true;
+      writingArea.disabled = true;
+      endChallenge(false);
+    }
+
+    function endChallenge(success) {
+      writingArea.removeEventListener('keydown', resetInactivityTimer);
+      writingArea.disabled = true;
+      timerDisplay.classList.add('hidden');
+      resultDisplay.classList.remove('hidden');
+      resultDisplay.textContent = success
+        ? "🎉 Success! You kept writing the whole time."
+        : "⏱️ Oops! You stopped typing for too long.";
+    }
+
+    startButton.addEventListener('click', startChallenge);
+  </script>
+</body>
+</html>
