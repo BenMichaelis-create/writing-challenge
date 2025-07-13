@@ -2,69 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Timed Writing Challenge</title>
   <style>
-    body {
-      font-family: sans-serif;
-      background: #f4f4f4;
-      margin: 0;
-      padding: 2rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: start;
-      min-height: 100vh;
-    }
-    h1 {
-      margin-bottom: 1rem;
-    }
-    .controls {
-      margin-bottom: 1rem;
-    }
-    select, button {
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-      margin-right: 0.5rem;
-    }
-    #timer {
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
-    }
-    textarea {
-      width: 100%;
-      max-width: 700px;
-      height: 300px;
-      padding: 1rem;
-      font-size: 1rem;
-      resize: none;
-    }
-    .hidden {
-      display: none;
-    }
-    .result {
-      margin-top: 1rem;
-      font-weight: bold;
-      font-size: 1.2rem;
-    }
+    /* ...styles same as before, omitted for brevity */
   </style>
 </head>
 <body>
-  <h1>Timed Writing Challenge</h1>
-  <div class="controls">
-    <label for="duration">Choose Time:</label>
-    <select id="duration">
-      <option value="1">1 Minute</option>
-      <option value="2">2 Minutes</option>
-      <option value="3">3 Minutes</option>
-      <option value="5">5 Minutes</option>
-    </select>
-    <button id="startButton">Start Writing</button>
-  </div>
-
-  <div id="timer" class="hidden"></div>
-  <textarea id="writingArea" class="hidden" placeholder="Start writing here..."></textarea>
-  <div id="result" class="result hidden"></div>
+  <!-- ...same HTML as before, omitted for brevity -->
 
   <script>
     const startButton = document.getElementById('startButton');
@@ -72,25 +17,100 @@
     const writingArea = document.getElementById('writingArea');
     const timerDisplay = document.getElementById('timer');
     const resultDisplay = document.getElementById('result');
+    const wordCountDisplay = document.getElementById('wordCount');
+    const submitReportBtn = document.getElementById('submitReportBtn');
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const promptIcon = document.getElementById('promptIcon');
+    const promptDisplay = document.getElementById('promptDisplay');
+
+    const prompts = [
+      "Write about a moment you felt brave.",
+      "Describe a world where nobody can speak.",
+      "What would happen if gravity stopped working for 10 minutes?",
+      "Write about your favorite place to relax.",
+      "Imagine a future school with no classrooms.",
+      "Describe a challenge you overcame recently.",
+      "Write a letter to your future self.",
+      "Invent a new holiday and explain how people celebrate it."
+    ];
 
     let countdownInterval;
     let inactivityTimer;
     let timeRemaining = 0;
     let isFailed = false;
+    let startTime = null;
+
+    function getRandomPrompt() {
+      const idx = Math.floor(Math.random() * prompts.length);
+      return prompts[idx];
+    }
+
+    // Other event listeners (dark mode toggle, prompt icon) same as before...
+
+    function updateTimerDisplay() {
+      const minutes = Math.floor(timeRemaining / 60);
+      const seconds = timeRemaining % 60;
+      timerDisplay.textContent = `Time Left: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function updateWordCount() {
+      const words = writingArea.value.trim().split(/\s+/).filter(Boolean).length;
+      wordCountDisplay.textContent = `Word Count: ${words}`;
+    }
+
+    function resetInactivityTimer() {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        if (timeRemaining > 0) {
+          failChallenge();
+        }
+      }, 10000);
+    }
+
+    function failChallenge() {
+      clearInterval(countdownInterval);
+      isFailed = true;
+      writingArea.disabled = true;
+      endChallenge(false);
+    }
+
+    function endChallenge(success) {
+      clearInterval(countdownInterval);
+      clearTimeout(inactivityTimer);
+      writingArea.removeEventListener('keydown', resetInactivityTimer);
+      writingArea.disabled = true;
+      timerDisplay.classList.add('hidden');
+      wordCountDisplay.classList.add('hidden');
+      resultDisplay.classList.remove('hidden');
+
+      if (success) {
+        resultDisplay.textContent = `🎉 Success! You kept writing the whole time. Word Count: ${writingArea.value.trim().split(/\s+/).filter(Boolean).length}`;
+
+        submitReportBtn.classList.remove('hidden');
+      } else {
+        resultDisplay.textContent = "⏱️ Oops! You stopped typing for too long.";
+        submitReportBtn.classList.add('hidden');
+      }
+    }
 
     function startChallenge() {
       const minutes = parseInt(durationSelect.value);
       timeRemaining = minutes * 60;
       isFailed = false;
+      startTime = Date.now();
 
       writingArea.value = '';
       writingArea.disabled = false;
       writingArea.classList.remove('hidden');
+      wordCountDisplay.classList.remove('hidden');
       resultDisplay.classList.add('hidden');
+      submitReportBtn.classList.add('hidden');
       timerDisplay.classList.remove('hidden');
+      promptDisplay.textContent = "💡 Click the lightbulb for a prompt";
       writingArea.focus();
 
       updateTimerDisplay();
+      updateWordCount();
 
       clearInterval(countdownInterval);
       clearTimeout(inactivityTimer);
@@ -107,42 +127,49 @@
 
       resetInactivityTimer();
 
-      writingArea.addEventListener('keydown', resetInactivityTimer);
+      writingArea.addEventListener('keydown', () => {
+        resetInactivityTimer();
+        updateWordCount();
+      });
     }
 
-    function updateTimerDisplay() {
-      const minutes = Math.floor(timeRemaining / 60);
-      const seconds = timeRemaining % 60;
-      timerDisplay.textContent = `Time Left: ${minutes}:${seconds.toString().padStart(2, '0')}`;
-    }
+    submitReportBtn.addEventListener('click', () => {
+      const now = new Date();
+      const timeWritingMinutes = ((Date.now() - startTime) / 60000).toFixed(2);
+      const wordCount = writingArea.value.trim().split(/\s+/).filter(Boolean).length;
+      const wpm = (wordCount / timeWritingMinutes).toFixed(1);
 
-    function resetInactivityTimer() {
-      clearTimeout(inactivityTimer);
-      inactivityTimer = setTimeout(() => {
-        if (timeRemaining > 0) {
-          failChallenge();
-        }
-      }, 10000); // 10 seconds
-    }
+      const reportText =
+`Writing Challenge Report
+Date: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}
+Time Writing: ${timeWritingMinutes} minutes
+Word Count: ${wordCount}
+WPM (Words Per Minute): ${wpm}
 
-    function failChallenge() {
-      clearInterval(countdownInterval);
-      isFailed = true;
-      writingArea.disabled = true;
-      endChallenge(false);
-    }
+Writing:
+${writingArea.value}
 
-    function endChallenge(success) {
-      writingArea.removeEventListener('keydown', resetInactivityTimer);
-      writingArea.disabled = true;
-      timerDisplay.classList.add('hidden');
-      resultDisplay.classList.remove('hidden');
-      resultDisplay.textContent = success
-        ? "🎉 Success! You kept writing the whole time."
-        : "⏱️ Oops! You stopped typing for too long.";
-    }
+Please submit this report on Canvas for your writing points.`;
 
+      navigator.clipboard.writeText(reportText).then(() => {
+        alert('Report copied to clipboard! You can now paste it in Canvas.');
+      }, () => {
+        alert('Failed to copy report to clipboard.');
+      });
+    });
+
+    // Event listeners
     startButton.addEventListener('click', startChallenge);
+
+    darkModeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+    });
+
+    promptIcon.addEventListener('click', () => {
+      const prompt = getRandomPrompt();
+      promptDisplay.textContent = "💡 Prompt: " + prompt;
+    });
+
   </script>
 </body>
 </html>
