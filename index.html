@@ -1,102 +1,174 @@
-NEW CODE
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Activity Tag Viewer</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Timed Writing Challenge</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h2 { margin-top: 30px; }
-    ul { list-style: none; padding-left: 0; }
-    li { margin: 5px 0; padding: 5px; background-color: #f0f0f0; border-radius: 4px; }
-    .tag-category { margin-bottom: 20px; }
+    /* ...styles same as before, omitted for brevity */
   </style>
 </head>
 <body>
-
-  <h1>Activity Tag Viewer</h1>
-
-  <div class="tag-category">
-    <h2>Type</h2>
-    <ul id="type-list"></ul>
-  </div>
-
-  <div class="tag-category">
-    <h2>Genre</h2>
-    <ul id="genre-list"></ul>
-  </div>
-
-  <div class="tag-category">
-    <h2>Misc</h2>
-    <ul id="misc-list"></ul>
-  </div>
+  <!-- ...same HTML as before, omitted for brevity -->
 
   <script>
-    // Your JSON data goes here
-    const activities = [
-      {
-        "Activity Name": "Name Tag Trio",
-        "Description": "Color code name tags and ask people to form groups of three with the same color, then introduce themselves.",
-        "Stage (Layer 1)": "Ice Breaker",
-        "Genre/Production (Layer 2/3)": "Making Groups",
-        "Miscellaneous Tags": "On Your Feet"
-      },
-      {
-        "Activity Name": "Sketch Intro",
-        "Description": "Ask participants to draw a picture, using no letters, that captures a key facet of their experience, philosophy, or personality.",
-        "Stage (Layer 1)": "Ice Breaker",
-        "Genre/Production (Layer 2/3)": "Visual Art",
-        "Miscellaneous Tags": ""
-      }
-      // Add the rest of your activities here...
+    const startButton = document.getElementById('startButton');
+    const durationSelect = document.getElementById('duration');
+    const writingArea = document.getElementById('writingArea');
+    const timerDisplay = document.getElementById('timer');
+    const resultDisplay = document.getElementById('result');
+    const wordCountDisplay = document.getElementById('wordCount');
+    const submitReportBtn = document.getElementById('submitReportBtn');
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const promptIcon = document.getElementById('promptIcon');
+    const promptDisplay = document.getElementById('promptDisplay');
+
+    const prompts = [
+      "Write about a moment you felt brave.",
+      "Describe a world where nobody can speak.",
+      "What would happen if gravity stopped working for 10 minutes?",
+      "Write about your favorite place to relax.",
+      "Imagine a future school with no classrooms.",
+      "Describe a challenge you overcame recently.",
+      "Write a letter to your future self.",
+      "Invent a new holiday and explain how people celebrate it."
     ];
 
-    // Define known tags
-    const typeTags = ["Opening", "Introduce", "Pre-ASSESSMENT", "READ", "ANALYZE", "REVIEW", "EVALUATE", "FORMATIVE", "SUMMATIVE", "Closing"];
-    const genreTags = ["READ", "VOCABULARY", "WRITING (Short)", "WRITING (Creative)", "Visual Art"];
-    const miscKnownTags = ["Games", "Ice Breaker", "Making Groups"];
+    let countdownInterval;
+    let inactivityTimer;
+    let timeRemaining = 0;
+    let isFailed = false;
+    let startTime = null;
 
-    // Create sets to collect unique tags
-    const typeSet = new Set();
-    const genreSet = new Set();
-    const miscSet = new Set();
+    function getRandomPrompt() {
+      const idx = Math.floor(Math.random() * prompts.length);
+      return prompts[idx];
+    }
 
-    activities.forEach(act => {
-      // Combine all possible tag sources
-      const allTags = [];
-      if (act["Stage (Layer 1)"]) allTags.push(act["Stage (Layer 1)"].trim());
-      if (act["Genre/Production (Layer 2/3)"]) allTags.push(act["Genre/Production (Layer 2/3)"].trim());
-      if (act["Miscellaneous Tags"]) {
-        act["Miscellaneous Tags"].split(',').forEach(t => {
-          if(t.trim()) allTags.push(t.trim());
-        });
-      }
+    // Other event listeners (dark mode toggle, prompt icon) same as before...
 
-      allTags.forEach(tag => {
-        if (typeTags.includes(tag)) {
-          typeSet.add(tag);
-        } else if (genreTags.includes(tag)) {
-          genreSet.add(tag);
-        } else {
-          miscSet.add(tag);
+    function updateTimerDisplay() {
+      const minutes = Math.floor(timeRemaining / 60);
+      const seconds = timeRemaining % 60;
+      timerDisplay.textContent = `Time Left: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function updateWordCount() {
+      const words = writingArea.value.trim().split(/\s+/).filter(Boolean).length;
+      wordCountDisplay.textContent = `Word Count: ${words}`;
+    }
+
+    function resetInactivityTimer() {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        if (timeRemaining > 0) {
+          failChallenge();
         }
-      });
-    });
+      }, 10000);
+    }
 
-    // Helper function to populate a list
-    function populateList(elementId, tagSet) {
-      const ul = document.getElementById(elementId);
-      tagSet.forEach(tag => {
-        const li = document.createElement('li');
-        li.textContent = tag;
-        ul.appendChild(li);
+    function failChallenge() {
+      clearInterval(countdownInterval);
+      isFailed = true;
+      writingArea.disabled = true;
+      endChallenge(false);
+    }
+
+    function endChallenge(success) {
+      clearInterval(countdownInterval);
+      clearTimeout(inactivityTimer);
+      writingArea.removeEventListener('keydown', resetInactivityTimer);
+      writingArea.disabled = true;
+      timerDisplay.classList.add('hidden');
+      wordCountDisplay.classList.add('hidden');
+      resultDisplay.classList.remove('hidden');
+
+      if (success) {
+        resultDisplay.textContent = `🎉 Success! You kept writing the whole time. Word Count: ${writingArea.value.trim().split(/\s+/).filter(Boolean).length}`;
+
+        submitReportBtn.classList.remove('hidden');
+      } else {
+        resultDisplay.textContent = "⏱️ Oops! You stopped typing for too long.";
+        submitReportBtn.classList.add('hidden');
+      }
+    }
+
+    function startChallenge() {
+      const minutes = parseInt(durationSelect.value);
+      timeRemaining = minutes * 60;
+      isFailed = false;
+      startTime = Date.now();
+
+      writingArea.value = '';
+      writingArea.disabled = false;
+      writingArea.classList.remove('hidden');
+      wordCountDisplay.classList.remove('hidden');
+      resultDisplay.classList.add('hidden');
+      submitReportBtn.classList.add('hidden');
+      timerDisplay.classList.remove('hidden');
+      promptDisplay.textContent = "💡 Click the lightbulb for a prompt";
+      writingArea.focus();
+
+      updateTimerDisplay();
+      updateWordCount();
+
+      clearInterval(countdownInterval);
+      clearTimeout(inactivityTimer);
+
+      countdownInterval = setInterval(() => {
+        timeRemaining--;
+        updateTimerDisplay();
+        if (timeRemaining <= 0) {
+          clearInterval(countdownInterval);
+          clearTimeout(inactivityTimer);
+          endChallenge(true);
+        }
+      }, 1000);
+
+      resetInactivityTimer();
+
+      writingArea.addEventListener('keydown', () => {
+        resetInactivityTimer();
+        updateWordCount();
       });
     }
 
-    populateList('type-list', typeSet);
-    populateList('genre-list', genreSet);
-    populateList('misc-list', miscSet);
+    submitReportBtn.addEventListener('click', () => {
+      const now = new Date();
+      const timeWritingMinutes = ((Date.now() - startTime) / 60000).toFixed(2);
+      const wordCount = writingArea.value.trim().split(/\s+/).filter(Boolean).length;
+      const wpm = (wordCount / timeWritingMinutes).toFixed(1);
+
+      const reportText =
+`Writing Challenge Report
+Date: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}
+Time Writing: ${timeWritingMinutes} minutes
+Word Count: ${wordCount}
+WPM (Words Per Minute): ${wpm}
+
+Writing:
+${writingArea.value}
+
+Please submit this report on Canvas for your writing points.`;
+
+      navigator.clipboard.writeText(reportText).then(() => {
+        alert('Report copied to clipboard! You can now paste it in Canvas.');
+      }, () => {
+        alert('Failed to copy report to clipboard.');
+      });
+    });
+
+    // Event listeners
+    startButton.addEventListener('click', startChallenge);
+
+    darkModeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+    });
+
+    promptIcon.addEventListener('click', () => {
+      const prompt = getRandomPrompt();
+      promptDisplay.textContent = "💡 Prompt: " + prompt;
+    });
 
   </script>
 </body>
